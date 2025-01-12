@@ -4,9 +4,10 @@ import numpy as np
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
 from tqdm import tqdm
+from matplotlib import pyplot as plt
 
 
-From: https://github.com/andrew-cr/discrete_flow_models/blob/main/notebooks/toycode_masking.ipynb
+# From: https://github.com/andrew-cr/discrete_flow_models/blob/main/notebooks/toycode_masking.ipynb
 def test_masking():
     
     # training
@@ -36,7 +37,7 @@ def test_masking():
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
 
     losses = []
-    for _ in tqdm(range(5000)):
+    for _ in tqdm(range(100000)):
         num_ones = torch.randint(0, D+1, (B,))
         x1 = (torch.arange(D)[None, :] < num_ones[:, None]).long()
         # x1 e.g. [1, 1, 1, 0, 0, 0, 0, 0, 0, 0] or [1, 1, 1, 1, 1, 1, 1, 1, 1, 0]
@@ -58,7 +59,6 @@ def test_masking():
 
 
     # Sampling
-
     t = 0.0
     dt = 0.001
     num_samples = 1000
@@ -79,3 +79,8 @@ def test_masking():
 
         if t < 1.0:
             xt[will_mask] = S-1
+
+    # print(samples)
+    counts = xt.sum(dim=1).float()
+    plt.hist(counts.numpy(), bins=range(D+2))
+    plt.show()
