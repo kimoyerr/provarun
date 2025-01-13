@@ -1,8 +1,20 @@
 import os
-import torch
+import hydra
+from hydra import initialize, compose
 from transformers import EsmTokenizer
 
+from omegaconf import DictConfig
 from provarun.data_utils import split_deeploc_data, build_hf_data_loader
+from provarun.models import GPT
+
+
+# TODO: Add a main at some point to make this cleaner with using Hydra
+# Initialize Hydra and load the configuration 
+config_dir = "config/" 
+with initialize(config_path=config_dir): 
+    all_cfg = compose(config_name="config")
+
+model_cfg = all_cfg.model
 
 # Prepare data
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -39,3 +51,9 @@ dataloader_tag_dict = {
 data_iterator = iter(data_loader)
 batch = next(data_iterator)
 print(batch)
+
+
+# Load model with config
+model = GPT(model_cfg)  
+model.to("cuda")
+
