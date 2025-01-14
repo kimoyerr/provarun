@@ -1,3 +1,4 @@
+import math
 import torch
 from torch import nn
 
@@ -123,7 +124,23 @@ class GPT(nn.Module):
             self.layers.append(TransformerBlock(config, pos_cis))
         
         self.norm = nn.RMSNorm(config.dim, config.rms_norm_eps)
-        self.linear = nn.Linear(config.dim, config.vocab_size, bias=False)
+        self.output = nn.Linear(config.dim, config.vocab_size, bias=False)
+
+        # Weight initilization
+        self._init_weights()
+
+        # Special weight initialization for the output layers of feedforward and MHA
+        # TODO: Other ways to initialize the weights? What's the best way for each layer in the transformer?
+        for pn, p in self.named_parameters():
+            if pn.endswith('w3.weight') or pn.endswith('wo.weight'):
+                torch.nn.init.normal_(p, mean=0.0, std=0.02 / math.sqrt(2 * config.num_transformer_layers))
+
+    def _init_weights(self, module):
+        for name, param in module.named_parameters():
+            if 'weight' in name:
+                nn.init.normal_(param, mean=0.0, std=0.02)
+            elif 'bias' in name:
+                nn.init.constant_(param, 0.0)
         
 
     def forward(self, x):
@@ -136,7 +153,8 @@ class GPT(nn.Module):
             h = layer(h, pos_cis)
         
         h = self.norm(h)
-        logits = self.linear(h)
-        return logits
+        logits = self.output(h)
+        
+        out_softmax = torch.softmax(logits, dim=-1)
 
 
