@@ -54,8 +54,7 @@ class MHA(nn.Module):
 
         if self.flash:
             # TODO: Implement Flash attention
-            print("Flash attention not implemented yet")
-            return None
+            raise NotImplementedError("Flash attention is not implemented yet.")
         else:
             # This gives the attention scores for each head and at each position
             scores = torch.matmul(xq, xk.transpose(-2, -1)) / (self.head_dim ** 0.5) # Returns [batch_size, num_heads, seq_len, seq_len]
