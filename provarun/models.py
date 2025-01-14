@@ -1,6 +1,7 @@
 import math
 import torch
 from torch import nn
+from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from provarun.model_utils import apply_rotary_emb, precompute_pos_cis
 
@@ -125,6 +126,7 @@ class GPT(nn.Module):
         
         self.norm = nn.RMSNorm(config.dim, config.rms_norm_eps)
         self.output = nn.Linear(config.dim, config.vocab_size, bias=False)
+        self.OUT = CausalLMOutputWithPast()
 
         # Weight initilization
         self.apply(self._init_weights)
@@ -144,7 +146,7 @@ class GPT(nn.Module):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
         
 
-    def forward(self, x):
+    def forward(self, x , labels=None):
         batch_size, seq_len = x.size()
         current_idx = 0  # TODO: Implement sliding window for long sequences
         h = self.wte(x)  # Shape [batch_size, seq_len, dim]
@@ -154,8 +156,20 @@ class GPT(nn.Module):
             h = layer(h, pos_cis)
         
         h = self.norm(h)
-        logits = self.output(h)
         
-        out_softmax = torch.softmax(logits, dim=-1)
+        # Check if labels or targets are provided
+        if labels is not None:
+            logits = self.output(h)
+            self.last_loss = nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1), ignore_index=-1, reduction="none")
+        else:
+            logits = self.output(h[:, [-1], :])  # Ignore the last token
+            self.last_loss = None
+
+        # Causal LM output
+        self.OUT.__setitem__("logits", logits)
+        self.OUT.__setitem__("past_key_values", None)
+        self.OUT.__setitem__("last_loss", self.last_loss)       
+
+        return self.OUT
 
 

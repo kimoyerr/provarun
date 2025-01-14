@@ -59,6 +59,8 @@ model.to("cuda")
 
 # Forward pass
 x = batch[0]["aa_inputs"]["input_ids"]
+labels = batch[1]["aa_labels"]
 x = x.to("cuda")
-output = model(x)
+labels = labels.to("cuda")
+output = model(x, labels)
 
