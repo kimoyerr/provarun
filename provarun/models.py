@@ -127,7 +127,7 @@ class GPT(nn.Module):
         self.output = nn.Linear(config.dim, config.vocab_size, bias=False)
 
         # Weight initilization
-        self._apply(self._init_weights)
+        self.apply(self._init_weights)
 
         # Special weight initialization for the output layers of feedforward and MHA
         # TODO: Other ways to initialize the weights? What's the best way for each layer in the transformer?
@@ -136,14 +136,13 @@ class GPT(nn.Module):
                 torch.nn.init.normal_(p, mean=0.0, std=0.02 / math.sqrt(2 * config.num_transformer_layers))
 
     def _init_weights(self, module):
-        for name, param in module.named_parameters():
-            if isinstance(module, nn.Linear):
-                torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-                if module.bias is not None:
-                    torch.nn.init.zeros_(module.bias)
-            elif isinstance(module, nn.Embedding):
-                torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-            
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        
 
     def forward(self, x):
         batch_size, seq_len = x.size()
