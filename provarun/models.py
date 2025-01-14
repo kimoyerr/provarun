@@ -146,7 +146,7 @@ class GPT(nn.Module):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
         
 
-    def forward(self, x , labels=None):
+    def forward(self, x, labels=None):
         batch_size, seq_len = x.size()
         current_idx = 0  # TODO: Implement sliding window for long sequences
         h = self.wte(x)  # Shape [batch_size, seq_len, dim]
