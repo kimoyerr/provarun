@@ -40,8 +40,8 @@ model_seed = 1
 model_name = f'facebook/esm1v_t33_650M_UR90S_{model_seed}'
 tokenizer = EsmTokenizer.from_pretrained(model_name)
 # tokenizer.add_tokens(['<bos>', '<eos>'])
-data_loader = build_hf_data_loader('ecoli_protein_train', dataloader_dir_path, "train", "Sequence", tokenizer, batch_size=24, seq_len=256, world_size=1, rank=0, infinite=True)
-val_data_loader = build_hf_data_loader('ecoli_protein_val', dataloader_dir_path, "validation", "Sequence", tokenizer, batch_size=24, seq_len=256, world_size=1, rank=0, infinite=True)
+data_loader = build_hf_data_loader('ecoli_protein_train', dataloader_dir_path, "train", "Sequence", tokenizer, batch_size=4, seq_len=model_cfg.max_seq_len, world_size=1, rank=0, infinite=True)
+val_data_loader = build_hf_data_loader('ecoli_protein_val', dataloader_dir_path, "validation", "Sequence", tokenizer, batch_size=4, seq_len=model_cfg.max_seq_len, world_size=1, rank=0, infinite=True)
 dataloader_tag_dict = {
     "tokenizer": "facebook/esm1v_t33_650M_UR90S_1",
     "batch_size": 8,
@@ -56,4 +56,9 @@ print(batch)
 # Load model with config
 model = GPT(model_cfg)  
 model.to("cuda")
+
+# Forward pass
+x = batch[0]["aa_inputs"]["input_ids"]
+x = x.to("cuda")
+output = model(x)
 
