@@ -12,6 +12,7 @@ dependencies = [
     "pytest>=8.3.4",
     "seaborn>=0.13.2",
     "torchdata>=0.10.1",
+    "torchinfo>=1.8.0",
     "torchtitan>=0.0.2",
     "tqdm>=4.67.1",
     "transformers>=4.48.0",

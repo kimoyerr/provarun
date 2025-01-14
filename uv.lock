@@ -1251,6 +1251,7 @@ dependencies = [
     { name = "pytest" },
     { name = "seaborn" },
     { name = "torchdata" },
+    { name = "torchinfo" },
     { name = "torchtitan" },
     { name = "tqdm" },
     { name = "transformers" },
@@ -1265,6 +1266,7 @@ requires-dist = [
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "torchdata", specifier = ">=0.10.1" },
+    { name = "torchinfo", specifier = ">=1.8.0" },
     { name = "torchtitan", specifier = ">=0.0.2" },
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "transformers", specifier = ">=4.48.0" },
@@ -1765,6 +1767,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/87/ec/a40aa124660f0ee65e6760cb53df6a82ad91a1a3ef1da5e747f1336644dd/torchdiffeq-0.2.5.tar.gz", hash = "sha256:b50d3760d13fd138dcceac651f4b80396f44fefcebd037a033fecfeaa9cc12e7", size = 31197 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b9/35/537f64f2d0b3cfebaae0f903b4e3a3b239abcc99d0f73cb15b9cee9b8212/torchdiffeq-0.2.5-py3-none-any.whl", hash = "sha256:aa1db4bed13bd04952f28a53cdf4336d1ab60417c1d9698d7a239fec1cf2bcf8", size = 32902 },
+]
+
+[[package]]
+name = "torchinfo"
+version = "1.8.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/d9/2b811d1c0812e9ef23e6cf2dbe022becbe6c5ab065e33fd80ee05c0cd996/torchinfo-1.8.0.tar.gz", hash = "sha256:72e94b0e9a3e64dc583a8e5b7940b8938a1ac0f033f795457f27e6f4e7afa2e9", size = 25880 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/72/25/973bd6128381951b23cdcd8a9870c6dcfc5606cb864df8eabd82e529f9c1/torchinfo-1.8.0-py3-none-any.whl", hash = "sha256:2e911c2918603f945c26ff21a3a838d12709223dc4ccf243407bce8b6e897b46", size = 23377 },
 ]
 
 [[package]]
