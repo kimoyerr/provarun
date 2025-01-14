@@ -1,0 +1,13 @@
+train:
+  batch_size: 4
+  
+model:
+  vocab_size: 28
+  max_seq_len: 512
+  dim: 256
+  num_heads: 4
+  num_transformer_layers: 6
+  dropout: 0.1
+  flash_attn: False
+  rms_norm_eps: 1e-6
+  ffn_multiple: 4
