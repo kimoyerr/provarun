@@ -108,19 +108,34 @@ class HuggingFaceProteinDataset(IterableDataset, Stateful):
     def collate_fn(self, batch):
         aa_seqs, aa_label_ids = zip(*batch)
 
-
+        # Create a loss mask tensor filled with 1s with shape (batch_size, seq_len)
+        # Loss mask is used to mask out the loss for padded tokens during training
+        loss_mask = torch.ones(len(aa_seqs), self.seq_len)
+        
+        # For each sequence in the batch
+        for i, seq in enumerate(aa_seqs):
+            print(len(seq))
+            # Calculate how many padding tokens are needed to reach seq_len
+            pad_len = self.seq_len - len(seq)
+            print(pad_len)
+            # If padding is needed (pad_len > 0), set the loss mask to 0 
+            # for all padding positions at the end of the sequence
+            if pad_len > 0:
+                loss_mask[i, -pad_len:] = 0
+        loss_mask = {"loss_mask": loss_mask}
+        
+        # Encoder
         encoder_info = self._tokenizer.pad({"input_ids": aa_seqs}, return_tensors='pt', padding=True)
         aa_inputs = {"aa_inputs": encoder_info}
-
-
         inputs = {**aa_inputs}
 
         aa_label_ids = pad_sequences(aa_label_ids, -1)
         labels = {
                   "aa_labels": aa_label_ids,
                   }
+        
 
-        return inputs, labels
+        return inputs, labels, loss_mask
 
     def _get_data_iter(self):
         if self._sample_idx == 0:
@@ -192,7 +207,8 @@ def build_hf_data_loader(
         dataset_name, dataset_path, dataset_split, seq_column, tokenizer, seq_len, world_size, rank, infinite,
     )
 
-    return DPAwareDataLoader(rank, hf_ds, batch_size=batch_size, collate_fn=hf_ds.collate_fn)
+    # Return the dataloader and the length of the dataset. Length is needed to estimate the number of steps per epoch
+    return DPAwareDataLoader(rank, hf_ds, batch_size=batch_size, collate_fn=hf_ds.collate_fn), len(hf_ds._data)
 
 
 def split_seq(seq):
