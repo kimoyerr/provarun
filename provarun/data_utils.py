@@ -14,7 +14,7 @@ from torchtitan.datasets.tokenizer import Tokenizer
 from torchtitan.logging import init_logger, logger
 
 
-def split_deeploc_data(csv_path, output_dir):
+def split_deeploc_data(csv_path, output_dir, debug=False):
 
 
     # Split the dataset into train and validation sets based on the  Partition column
@@ -26,6 +26,10 @@ def split_deeploc_data(csv_path, output_dir):
     # Check if output_dir exists, if not create it
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+    
+    # If debug only select the first 8 rows. This is to test overfitting
+    if debug:
+        train_df = train_df.iloc[:8,]
     train_df.to_csv(f"{output_dir}/train.csv", index=False)
     val_df.to_csv(f"{output_dir}/val.csv", index=False)
     

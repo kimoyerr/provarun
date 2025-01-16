@@ -28,7 +28,7 @@ dataset_name = "deeploc_2_1"
 data_csv_path = os.path.join(data_dir, "Swissprot_Train_Validation_dataset.csv")
 dataloader_dir_path = os.path.join(data_dir, "dataloader")
 # split data into train and validation
-_ = split_deeploc_data(data_csv_path, dataloader_dir_path)
+_ = split_deeploc_data(data_csv_path, dataloader_dir_path, debug=train_cfg.overfit_mode)
 num_training_seq = 1000
 num_validation_seq = 100
 random_seed = 42
@@ -72,11 +72,11 @@ model = GPT(model_cfg)
 model.to("cuda")
 
 # Forward pass
-x = batch[0]["aa_inputs"]["input_ids"]
-labels = batch[1]["aa_labels"]
-x = x.to("cuda")
-labels = labels.to("cuda")
-output = model(x, labels)
+# x = batch[0]["aa_inputs"]["input_ids"]
+# labels = batch[1]["aa_labels"]
+# x = x.to("cuda")
+# labels = labels.to("cuda")
+# output = model(x, labels)
 
 # Training
 # Get training context
@@ -93,6 +93,7 @@ if model_cfg.compile_model:
 # Train loop
 iter_per_epoch = num_train_seqs // train_cfg.batch_size
 epoch = 0
+model.train()
 while epoch < train_cfg.num_epochs:
     start_time = time.time()
     for step, batch in enumerate(data_loader):
@@ -160,6 +161,7 @@ while epoch < train_cfg.num_epochs:
                     print(f"Validation loss: {loss_val}")
                     if (wandb is not None):
                         wandb.log({"val_loss": loss_val})
+                model.train()
 
     
     epoch += 1
