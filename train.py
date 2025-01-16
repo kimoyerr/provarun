@@ -45,8 +45,8 @@ model_seed = 1
 model_name = f'facebook/esm1v_t33_650M_UR90S_{model_seed}'
 tokenizer = EsmTokenizer.from_pretrained(model_name)
 # tokenizer.add_tokens(['<bos>', '<eos>'])
-data_loader, num_train_seqs = build_hf_data_loader('ecoli_protein_train', dataloader_dir_path, "train", "Sequence", tokenizer, batch_size=4, seq_len=model_cfg.max_seq_len, world_size=1, rank=0, infinite=True)
-val_data_loader, num_val_seqs = build_hf_data_loader('ecoli_protein_val', dataloader_dir_path, "validation", "Sequence", tokenizer, batch_size=4, seq_len=model_cfg.max_seq_len, world_size=1, rank=0, infinite=False)
+data_loader, num_train_seqs = build_hf_data_loader('ecoli_protein_train', dataloader_dir_path, "train", "Sequence", tokenizer, batch_size=train_cfg.batch_size, seq_len=model_cfg.max_seq_len, world_size=1, rank=0, infinite=True)
+val_data_loader, num_val_seqs = build_hf_data_loader('ecoli_protein_val', dataloader_dir_path, "validation", "Sequence", tokenizer, batch_size=train_cfg.batch_size, seq_len=model_cfg.max_seq_len, world_size=1, rank=0, infinite=False)
 dataloader_tag_dict = {
     "tokenizer": "facebook/esm1v_t33_650M_UR90S_1",
     "batch_size": 8,
