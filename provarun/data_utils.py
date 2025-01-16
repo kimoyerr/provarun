@@ -4,6 +4,7 @@ import pickle
 import pandas as pd
 import numpy as np
 import torch
+from torch import nn
 from torch.utils.data import IterableDataset
 from torch.distributed.checkpoint.stateful import Stateful
 from torchdata.stateful_dataloader import StatefulDataLoader
@@ -114,10 +115,8 @@ class HuggingFaceProteinDataset(IterableDataset, Stateful):
         
         # For each sequence in the batch
         for i, seq in enumerate(aa_seqs):
-            print(len(seq))
             # Calculate how many padding tokens are needed to reach seq_len
             pad_len = self.seq_len - len(seq)
-            print(pad_len)
             # If padding is needed (pad_len > 0), set the loss mask to 0 
             # for all padding positions at the end of the sequence
             if pad_len > 0:
@@ -126,10 +125,15 @@ class HuggingFaceProteinDataset(IterableDataset, Stateful):
         
         # Encoder
         encoder_info = self._tokenizer.pad({"input_ids": aa_seqs}, return_tensors='pt', padding=True)
+        # Pad to the sequence length
+        padding_id = self._tokenizer._convert_token_to_id("<pad>")
+        encoder_info = nn.functional.pad(encoder_info["input_ids"], (0, self.seq_len - encoder_info["input_ids"].shape[1]), value=padding_id)
+        encoder_info = {"input_ids": encoder_info}
         aa_inputs = {"aa_inputs": encoder_info}
         inputs = {**aa_inputs}
 
         aa_label_ids = pad_sequences(aa_label_ids, -1)
+        aa_label_ids = nn.functional.pad(aa_label_ids, (0, self.seq_len - aa_label_ids.shape[1]), value=-1)
         labels = {
                   "aa_labels": aa_label_ids,
                   }
