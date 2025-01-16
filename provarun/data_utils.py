@@ -4,6 +4,7 @@ import pickle
 import pandas as pd
 import numpy as np
 import torch
+from torch import nn
 from torch.utils.data import IterableDataset
 from torch.distributed.checkpoint.stateful import Stateful
 from torchdata.stateful_dataloader import StatefulDataLoader
@@ -13,7 +14,7 @@ from torchtitan.datasets.tokenizer import Tokenizer
 from torchtitan.logging import init_logger, logger
 
 
-def split_deeploc_data(csv_path, output_dir):
+def split_deeploc_data(csv_path, output_dir, debug=False):
 
 
     # Split the dataset into train and validation sets based on the  Partition column
@@ -25,6 +26,10 @@ def split_deeploc_data(csv_path, output_dir):
     # Check if output_dir exists, if not create it
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+    
+    # If debug only select the first 8 rows. This is to test overfitting
+    if debug:
+        train_df = train_df.iloc[:8,]
     train_df.to_csv(f"{output_dir}/train.csv", index=False)
     val_df.to_csv(f"{output_dir}/val.csv", index=False)
     
@@ -108,19 +113,37 @@ class HuggingFaceProteinDataset(IterableDataset, Stateful):
     def collate_fn(self, batch):
         aa_seqs, aa_label_ids = zip(*batch)
 
-
+        # Create a loss mask tensor filled with 1s with shape (batch_size, seq_len)
+        # Loss mask is used to mask out the loss for padded tokens during training
+        loss_mask = torch.ones(len(aa_seqs), self.seq_len)
+        
+        # For each sequence in the batch
+        for i, seq in enumerate(aa_seqs):
+            # Calculate how many padding tokens are needed to reach seq_len
+            pad_len = self.seq_len - len(seq)
+            # If padding is needed (pad_len > 0), set the loss mask to 0 
+            # for all padding positions at the end of the sequence
+            if pad_len > 0:
+                loss_mask[i, -pad_len:] = 0
+        loss_mask = {"loss_mask": loss_mask}
+        
+        # Encoder
         encoder_info = self._tokenizer.pad({"input_ids": aa_seqs}, return_tensors='pt', padding=True)
+        # Pad to the sequence length
+        padding_id = self._tokenizer._convert_token_to_id("<pad>")
+        encoder_info = nn.functional.pad(encoder_info["input_ids"], (0, self.seq_len - encoder_info["input_ids"].shape[1]), value=padding_id)
+        encoder_info = {"input_ids": encoder_info}
         aa_inputs = {"aa_inputs": encoder_info}
-
-
         inputs = {**aa_inputs}
 
         aa_label_ids = pad_sequences(aa_label_ids, -1)
+        aa_label_ids = nn.functional.pad(aa_label_ids, (0, self.seq_len - aa_label_ids.shape[1]), value=-1)
         labels = {
                   "aa_labels": aa_label_ids,
                   }
+        
 
-        return inputs, labels
+        return inputs, labels, loss_mask
 
     def _get_data_iter(self):
         if self._sample_idx == 0:
@@ -192,7 +215,8 @@ def build_hf_data_loader(
         dataset_name, dataset_path, dataset_split, seq_column, tokenizer, seq_len, world_size, rank, infinite,
     )
 
-    return DPAwareDataLoader(rank, hf_ds, batch_size=batch_size, collate_fn=hf_ds.collate_fn)
+    # Return the dataloader and the length of the dataset. Length is needed to estimate the number of steps per epoch
+    return DPAwareDataLoader(rank, hf_ds, batch_size=batch_size, collate_fn=hf_ds.collate_fn), len(hf_ds._data)
 
 
 def split_seq(seq):
