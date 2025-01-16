@@ -16,4 +16,5 @@ dependencies = [
     "torchtitan>=0.0.2",
     "tqdm>=4.67.1",
     "transformers>=4.48.0",
+    "wandb>=0.19.3",
 ]
