@@ -146,7 +146,7 @@ while epoch < train_cfg.num_epochs:
             if (step + 1) % train_cfg.validation_interval == 0:
                 model.eval()
                 with torch.no_grad():
-                    val_loss = 0
+                    loss_val = 0
                     for val_step, val_batch in enumerate(val_data_loader):
                         X_val = val_batch[0]["aa_inputs"]["input_ids"].to("cuda")
                         Y_val = val_batch[1]["aa_labels"].to("cuda")
@@ -157,9 +157,9 @@ while epoch < train_cfg.num_epochs:
                         loss_val = torch.sum(loss_val * loss_mask_val) / torch.sum(loss_mask_val)
                         loss_val = loss_val.item()
                     loss_val /= (val_step + 1)
-                    print(f"Validation loss: {val_loss}")
+                    print(f"Validation loss: {loss_val}")
                     if (wandb is not None):
-                        wandb.log({"val_loss": val_loss})
+                        wandb.log({"val_loss": loss_val})
 
     
     epoch += 1
