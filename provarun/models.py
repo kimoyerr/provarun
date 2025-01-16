@@ -44,7 +44,7 @@ class MHA(nn.Module):
         xv = xv.view(x.size(0), x.size(1), self.config.num_heads, self.head_dim)
 
         # Apply rotary embeddings
-        xq, xv = apply_rotary_emb(xq, xv, pos_cis)
+        xq, xk = apply_rotary_emb(xq, xk, pos_cis)
 
         # Transpose the query, key, and value to make them compatible with the attention function
         # This moves the head dimension to the second position and we caclulate the attention across the sequence length for each head
@@ -54,8 +54,7 @@ class MHA(nn.Module):
 
         if self.flash:
             # TODO: Implement Flash attention
-            print("Flash attention not implemented yet")
-            return None
+            raise NotImplementedError("Flash attention is not implemented yet.")
         else:
             # This gives the attention scores for each head and at each position
             scores = torch.matmul(xq, xk.transpose(-2, -1)) / (self.head_dim ** 0.5) # Returns [batch_size, num_heads, seq_len, seq_len]
