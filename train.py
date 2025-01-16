@@ -1,4 +1,5 @@
 import os
+import time
 from contextlib import nullcontext
 from hydra import initialize, compose
 import torch
@@ -45,12 +46,21 @@ model_name = f'facebook/esm1v_t33_650M_UR90S_{model_seed}'
 tokenizer = EsmTokenizer.from_pretrained(model_name)
 # tokenizer.add_tokens(['<bos>', '<eos>'])
 data_loader, num_train_seqs = build_hf_data_loader('ecoli_protein_train', dataloader_dir_path, "train", "Sequence", tokenizer, batch_size=4, seq_len=model_cfg.max_seq_len, world_size=1, rank=0, infinite=True)
-val_data_loader, num_val_seqs = build_hf_data_loader('ecoli_protein_val', dataloader_dir_path, "validation", "Sequence", tokenizer, batch_size=4, seq_len=model_cfg.max_seq_len, world_size=1, rank=0, infinite=True)
+val_data_loader, num_val_seqs = build_hf_data_loader('ecoli_protein_val', dataloader_dir_path, "validation", "Sequence", tokenizer, batch_size=4, seq_len=model_cfg.max_seq_len, world_size=1, rank=0, infinite=False)
 dataloader_tag_dict = {
     "tokenizer": "facebook/esm1v_t33_650M_UR90S_1",
     "batch_size": 8,
     "seq_len": 256,
 }
+
+# Wandb logging
+wandb_run_name = f"DeepLoc-Epoch-{train_cfg.num_epochs}-BatchSize-{train_cfg.batch_size}-LearningRate-{train_cfg.learning_rate}"
+if train_cfg.use_wandb:
+    import wandb
+
+    wandb.init(project=train_cfg.wandb_project, name=wandb_run_name)
+else:
+    wandb = None
 
 data_iterator = iter(data_loader)
 batch = next(data_iterator)
@@ -84,6 +94,7 @@ if model_cfg.compile_model:
 iter_per_epoch = num_train_seqs // train_cfg.batch_size
 epoch = 0
 while epoch < train_cfg.num_epochs:
+    start_time = time.time()
     for step, batch in enumerate(data_loader):
         X = batch[0]["aa_inputs"]["input_ids"].to("cuda")
         Y = batch[1]["aa_labels"].to("cuda")
@@ -103,14 +114,52 @@ while epoch < train_cfg.num_epochs:
             # Scale the loss and do backpropagation
             scaler.scale(loss).backward()
 
+            # Step optimizer
             if (step + 1) % train_cfg.grad_accumulation_steps == 0:
                 # Unscale the gradients before clipping
                 scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters())
+                torch.nn.utils.clip_grad_norm_(model.parameters(), train_cfg.max_grad_norm)
 
                 # step optimizer
                 scaler.step(optimizer)
                 scaler.update()
                 optimizer.zero_grad(set_to_none=True)
+            
+            # Logging
+            if (step + 1) % train_cfg.log_interval == 0:
+                step_time = time.time() - start_time
+                print(
+                'Epoch:[{}/{}]({}/{}) loss:{:.3f} lr:{:.7f} epoch_Time:{}min:'.format(
+                    epoch,
+                    train_cfg.num_epochs,
+                    step,
+                    iter_per_epoch,
+                    loss.item() * train_cfg.grad_accumulation_steps,
+                    optimizer.param_groups[-1]['lr'],
+                    step_time / (step + 1) * iter_per_epoch // 60 - step_time // 60))
+                if (wandb is not None):
+                    wandb.log({"loss": loss.item() * train_cfg.grad_accumulation_steps,
+                           "lr": optimizer.param_groups[-1]['lr'],
+                           "epoch_Time": step_time / (step + 1) * iter_per_epoch // 60 - step_time // 60})
+            
+            # Validation
+            if (step + 1) % train_cfg.validation_interval == 0:
+                model.eval()
+                with torch.no_grad():
+                    val_loss = 0
+                    for val_step, val_batch in enumerate(val_data_loader):
+                        X_val = val_batch[0]["aa_inputs"]["input_ids"].to("cuda")
+                        Y_val = val_batch[1]["aa_labels"].to("cuda")
+                        loss_mask_val = val_batch[2]["loss_mask"].to("cuda")
+                        output_val = model(X_val, Y_val)
+                        loss_val = output_val.last_loss
+                        loss_mask_val = loss_mask_val.view(-1)
+                        loss_val = torch.sum(loss_val * loss_mask_val) / torch.sum(loss_mask_val)
+                        loss_val = loss_val.item()
+                    loss_val /= (val_step + 1)
+                    print(f"Validation loss: {val_loss}")
+                    if (wandb is not None):
+                        wandb.log({"val_loss": val_loss})
+
     
     epoch += 1
