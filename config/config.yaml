@@ -1,22 +1,23 @@
 train:
   device: cuda
-  batch_size: 4
+  batch_size: 96
   dtype: bfloat16
-  learning_rate: 1e-5
+  learning_rate: 2e-4
   num_epochs: 10
-  warmup_iters: 0
+  warmup_iters: 1000
   grad_accumulation_steps: 1
   max_grad_norm: 1.0
   log_interval: 10
   validation_interval: 10000
   wandb_project: "discrete_diffusion"
-  use_wandb: True
+  use_wandb: False
   overfit_mode: False
 
 
   
 model:
-  vocab_size: 28
+  flow_matching: True
+  vocab_size: 33
   max_seq_len: 256
   dim: 512
   num_heads: 8
