@@ -73,15 +73,15 @@ model = GPT(model_cfg)
 model.to("cuda")
 
 # Forward pass
-x = batch[0]["aa_inputs"]["input_ids"]
-labels = batch[1]["aa_labels"]
-times = batch[3]["times"]
-x = x.to("cuda")
-labels = labels.to("cuda")
-output = model(x, labels)
+# x = batch[0]["aa_inputs"]["input_ids"]
+# labels = batch[1]["aa_labels"]
+# times = batch[3]["times"]
+# x = x.to("cuda")
+# labels = labels.to("cuda")
+# output = model(x, labels)
 
-# Corrupt the data
-x_corrupt, target_mask = corrupt_data(x, times, mask_token_id)
+# # Corrupt the data
+# x_corrupt, corrupt_mask = corrupt_data(x, times, mask_token_id)
 
 
 # Training
@@ -106,14 +106,23 @@ while epoch < train_cfg.num_epochs:
         X = batch[0]["aa_inputs"]["input_ids"].to("cuda")
         Y = batch[1]["aa_labels"].to("cuda")
         loss_mask = batch[2]["loss_mask"].to("cuda")  # Loss mask is used to mask out the loss for padded tokens during training
-        times = batch[3]["times"].to("cuda")
+        if len(batch) > 3:  # Check if 4th element exists
+            times = batch[3]["times"]
+            X, corrupt_mask = corrupt_data(X, times, mask_token_id)
+            corrupt_mask = corrupt_mask.to("cuda")
+            times = times.to("cuda")
+            # Update loss mask to account for the corrupted tokens
+            loss_mask = loss_mask * (corrupt_mask)
         # Get new learning rate
         lr = get_lr(epoch*iter_per_epoch + step, train_cfg.num_epochs*iter_per_epoch, train_cfg.learning_rate, train_cfg.warmup_iters)
         # Set learning rate
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
         with ctx:
-            output = model(X,Y)
+            if times is not None:
+                output = model(X, Y, times)
+            else:
+                output = model(X,Y)
             loss = output.last_loss / train_cfg.grad_accumulation_steps
             loss_mask = loss_mask.view(-1)
             # Only get loss for tokens that are not padded

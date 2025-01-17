@@ -6,6 +6,30 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 from provarun.model_utils import apply_rotary_emb, precompute_pos_cis
 
 
+# TODO: Implement Gaussian Fourier Transform from https://github.com/HannesStark/dirichlet-flow-matching/blob/main/model/dna_models.py
+# Time step embedding: From https://github.com/andrew-cr/discrete_flow_models/blob/main/flow_model.py which is from
+# https://github.com/yang-song/score_sde_pytorch/ which is from
+# https://github.com/hojonathanho/diffusion/blob/master/diffusion_tf/nn.py
+def transformer_timestep_embedding(timesteps, embedding_dim, max_positions=10000):
+    # assumes timesteps is in the range 0 to 1000
+
+    assert len(timesteps.shape) == 1  or timesteps.shape[1] == 1
+    timesteps.squeeze_(1)
+    half_dim = embedding_dim // 2
+    # magic number 10000 is from transformers
+    emb = math.log(max_positions) / (half_dim - 1)
+    # emb = math.log(2.) / (half_dim - 1)
+    emb = torch.exp(torch.arange(half_dim, dtype=torch.float32, device=timesteps.device) * -emb)
+    # emb = tf.range(num_embeddings, dtype=jnp.float32)[:, None] * emb[None, :]
+    # emb = tf.cast(timesteps, dtype=jnp.float32)[:, None] * emb[None, :]
+    emb = timesteps.float()[:, None] * emb[None, :]
+    emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=1)
+    if embedding_dim % 2 == 1:  # zero pad
+        emb = nn.functional.pad(emb, (0, 1), mode='constant')
+    assert emb.shape == (timesteps.shape[0], embedding_dim)
+    return emb
+
+
 # The transformer model is inspired by Minimind: https://github.com/jingyaogong/minimind/blob/master/model/model.py and others
 class MHA(nn.Module):
     def __init__(self, config, pos_cis):
@@ -58,7 +82,11 @@ class MHA(nn.Module):
         else:
             # This gives the attention scores for each head and at each position
             scores = torch.matmul(xq, xk.transpose(-2, -1)) / (self.head_dim ** 0.5) # Returns [batch_size, num_heads, seq_len, seq_len]
-            scores = scores + self.causal_mask[:, :, :, :seq_len]
+            # Apply causal masking for regular training, skip for flow matching
+            if self.config.flow_matching:
+                scores = scores
+            else:
+                scores = scores + self.causal_mask[:, :, :, :seq_len]
             scores = nn.functional.softmax(scores, dim=-1).type_as(xq)
             scores = self.attn_dropout(scores)
             output = torch.matmul(scores, xv)  # Returns [batch_size, num_heads, seq_len, head_dim]
@@ -145,12 +173,16 @@ class GPT(nn.Module):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
         
 
-    def forward(self, x, labels=None):
+    def forward(self, x, labels=None, times=None):
         batch_size, seq_len = x.size()
         current_idx = 0  # TODO: Implement sliding window for long sequences
         h = self.wte(x)  # Shape [batch_size, seq_len, dim]
-        h = self.dropout(h)
         pos_cis = self.pos_cis[current_idx:current_idx + seq_len]
+        # Add time embeddings if exists
+        if times is not None:
+            time_emb = transformer_timestep_embedding(times, self.config.dim)
+            h = h + time_emb.view(-1, 1, self.config.dim)
+        h = self.dropout(h)
         for layer in self.layers:
             h = layer(h, pos_cis)
         
@@ -170,5 +202,6 @@ class GPT(nn.Module):
         self.OUT.__setitem__("last_loss", self.last_loss)       
 
         return self.OUT
+
 
 

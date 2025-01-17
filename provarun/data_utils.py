@@ -275,7 +275,7 @@ def corrupt_data(X, times, mask_token_id):
      # Generate random numbers of size X.shape
      u = torch.rand(X.shape)
      # Generate a mask for the data to corrupt. Times close to 0 are more likely to be corrupted
-     target_mask = u < (1-times)
-     X[target_mask] = mask_token_id
+     corrupt_mask = u < (1-times)
+     X[corrupt_mask] = mask_token_id
 
-     return X, target_mask
+     return X, corrupt_mask
