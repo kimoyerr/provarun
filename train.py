@@ -7,7 +7,7 @@ from transformers import EsmTokenizer
 from torchinfo import summary
 
 from omegaconf import DictConfig
-from provarun.data_utils import split_deeploc_data, build_hf_data_loader
+from provarun.data_utils import split_deeploc_data, build_hf_data_loader, corrupt_data
 from provarun.models import GPT
 from provarun.train_utils import get_lr
 
@@ -44,9 +44,10 @@ data_tag_dict = {
 model_seed = 1
 model_name = f'facebook/esm1v_t33_650M_UR90S_{model_seed}'
 tokenizer = EsmTokenizer.from_pretrained(model_name)
+mask_token_id = tokenizer._convert_token_to_id(tokenizer.mask_token)
 # tokenizer.add_tokens(['<bos>', '<eos>'])
-data_loader, num_train_seqs = build_hf_data_loader('ecoli_protein_train', dataloader_dir_path, "train", "Sequence", tokenizer, batch_size=train_cfg.batch_size, seq_len=model_cfg.max_seq_len, world_size=1, rank=0, infinite=True)
-val_data_loader, num_val_seqs = build_hf_data_loader('ecoli_protein_val', dataloader_dir_path, "validation", "Sequence", tokenizer, batch_size=train_cfg.batch_size, seq_len=model_cfg.max_seq_len, world_size=1, rank=0, infinite=False)
+data_loader, num_train_seqs = build_hf_data_loader('ecoli_protein_train', dataloader_dir_path, "train", "Sequence", tokenizer, batch_size=train_cfg.batch_size, seq_len=model_cfg.max_seq_len, world_size=1, rank=0, infinite=True, flow_matching=model_cfg.flow_matching)
+val_data_loader, num_val_seqs = build_hf_data_loader('ecoli_protein_val', dataloader_dir_path, "validation", "Sequence", tokenizer, batch_size=train_cfg.batch_size, seq_len=model_cfg.max_seq_len, world_size=1, rank=0, infinite=False, flow_matching=model_cfg.flow_matching)
 dataloader_tag_dict = {
     "tokenizer": "facebook/esm1v_t33_650M_UR90S_1",
     "batch_size": 8,
@@ -72,11 +73,16 @@ model = GPT(model_cfg)
 model.to("cuda")
 
 # Forward pass
-# x = batch[0]["aa_inputs"]["input_ids"]
-# labels = batch[1]["aa_labels"]
-# x = x.to("cuda")
-# labels = labels.to("cuda")
-# output = model(x, labels)
+x = batch[0]["aa_inputs"]["input_ids"]
+labels = batch[1]["aa_labels"]
+times = batch[3]["times"]
+x = x.to("cuda")
+labels = labels.to("cuda")
+output = model(x, labels)
+
+# Corrupt the data
+x_corrupt, target_mask = corrupt_data(x, times, mask_token_id)
+
 
 # Training
 # Get training context
@@ -100,6 +106,7 @@ while epoch < train_cfg.num_epochs:
         X = batch[0]["aa_inputs"]["input_ids"].to("cuda")
         Y = batch[1]["aa_labels"].to("cuda")
         loss_mask = batch[2]["loss_mask"].to("cuda")  # Loss mask is used to mask out the loss for padded tokens during training
+        times = batch[3]["times"].to("cuda")
         # Get new learning rate
         lr = get_lr(epoch*iter_per_epoch + step, train_cfg.num_epochs*iter_per_epoch, train_cfg.learning_rate, train_cfg.warmup_iters)
         # Set learning rate

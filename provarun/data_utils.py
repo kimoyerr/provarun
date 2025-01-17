@@ -65,6 +65,7 @@ class HuggingFaceProteinDataset(IterableDataset, Stateful):
         world_size: int = 1,
         rank: int = 0,
         infinite: bool = False,
+        flow_matching: bool = False,
     ) -> None:
 
         logger.info(f"Preparing {dataset_name} dataset from {dataset_path}")
@@ -77,6 +78,7 @@ class HuggingFaceProteinDataset(IterableDataset, Stateful):
         self.seq_len = seq_len
         self.infinite = infinite
         self.num_repeats = 0
+        self.flow_matching = flow_matching
 
         # variables for checkpointing
         self._sample_idx = 0
@@ -142,8 +144,14 @@ class HuggingFaceProteinDataset(IterableDataset, Stateful):
                   "aa_labels": aa_label_ids,
                   }
         
+        # If self.flow_matching, also output times
+        min_t = 0
+        times = torch.rand(len(aa_seqs),) * (1.0 - min_t) + min_t
+        # Reshape to same size as labels
+        times = times.unsqueeze(1)
+        times = {"times": times}
 
-        return inputs, labels, loss_mask
+        return inputs, labels, loss_mask, times
 
     def _get_data_iter(self):
         if self._sample_idx == 0:
@@ -210,6 +218,7 @@ def build_hf_data_loader(
     rank,
     infinite: bool = True,
     collate_fn=None,
+    flow_matching: bool = False,
 ):
     hf_ds = HuggingFaceProteinDataset(
         dataset_name, dataset_path, dataset_split, seq_column, tokenizer, seq_len, world_size, rank, infinite,
@@ -257,3 +266,16 @@ def pad_sequences(sequences, constant_value=0, dtype=None):
 		arr[arrslice] = seq
 
 	return array
+
+
+
+def corrupt_data(X, times, mask_token_id):
+     assert times.shape[0] == X.shape[0]
+
+     # Generate random numbers of size X.shape
+     u = torch.rand(X.shape)
+     # Generate a mask for the data to corrupt. Times close to 0 are more likely to be corrupted
+     target_mask = u < (1-times)
+     X[target_mask] = mask_token_id
+
+     return X, target_mask
