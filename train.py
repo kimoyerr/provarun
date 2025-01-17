@@ -21,6 +21,7 @@ with initialize(config_path=config_dir):
 model_cfg = all_cfg.model
 train_cfg = all_cfg.train
 
+
 # Prepare data
 current_dir = os.path.dirname(os.path.abspath(__file__))
 data_dir = os.path.join(current_dir, "data/deeploc2_1")  # Data from deeploc2.1: https://pmc.ncbi.nlm.nih.gov/articles/PMC11223819/
@@ -28,7 +29,11 @@ dataset_name = "deeploc_2_1"
 data_csv_path = os.path.join(data_dir, "Swissprot_Train_Validation_dataset.csv")
 dataloader_dir_path = os.path.join(data_dir, "dataloader")
 # split data into train and validation
-_ = split_deeploc_data(data_csv_path, dataloader_dir_path, debug=train_cfg.overfit_mode)
+if train_cfg.overfit_mode:
+    # If debug mode, only use 2*batch_size sequences for training
+    _ = split_deeploc_data(data_csv_path, dataloader_dir_path, debug=train_cfg.overfit_mode, num_training_seq=2*train_cfg.batch_size)
+else:
+    _ = split_deeploc_data(data_csv_path, dataloader_dir_path, debug=False)
 num_training_seq = 1000
 num_validation_seq = 100
 random_seed = 42
