@@ -1,6 +1,6 @@
 train:
   device: cuda
-  batch_size: 96
+  batch_size: 4
   dtype: bfloat16
   learning_rate: 2e-4
   num_epochs: 10
@@ -11,7 +11,7 @@ train:
   validation_interval: 10000
   wandb_project: "discrete_diffusion"
   use_wandb: False
-  overfit_mode: False
+  overfit_mode: True
 
 
   
@@ -27,3 +27,11 @@ model:
   rms_norm_eps: 1e-6
   ffn_multiple: 4
   compile_model: False
+
+# From: https://github.com/facebookresearch/flow_matching/blob/main/examples/text/configs/config.yaml
+flow:
+  source_distribution: uniform  # [uniform, mask]
+  loss_function: cross_entropy  # [cross_entropy, generalized_kl]
+  exponent: 1.
+  scheduler_type: polynomial
+  sampling_steps: 1024
