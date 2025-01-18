@@ -172,7 +172,7 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
         
-
+    # TODO: Implement self-conditioning as described in https://arxiv.org/pdf/2402.04997 (Appendix I)
     def forward(self, x, labels=None, times=None):
         batch_size, seq_len = x.size()
         current_idx = 0  # TODO: Implement sliding window for long sequences
