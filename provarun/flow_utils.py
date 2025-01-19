@@ -189,6 +189,14 @@ class MixtureDiscreteProbPath():
 
         self.scheduler = scheduler
 
+    def assert_sample_shape(self, x_0, x_1, t):
+        assert (
+            t.ndim == 1
+        ), f"The time vector t must have shape [batch_size]. Got {t.shape}."
+        assert (
+            t.shape[0] == x_0.shape[0] == x_1.shape[0]
+        ), f"Time t dimension must match the batch size [{x_1.shape[0]}]. Got {t.shape}"
+
     def sample(self, x_0, x_1, t):
         r"""Sample from the affine probability path:
             | given :math:`(X_0,X_1) \sim \pi(X_0,X_1)` and a scheduler :math:`(\alpha_t,\sigma_t)`.
@@ -239,3 +247,14 @@ class MixtureDiscreteProbPath():
         d_kappa_t = scheduler_output.d_alpha_t
 
         return (d_kappa_t / (1 - kappa_t)) * (posterior - x_t)
+    
+
+
+
+def flow_matching_path_sample(x_1, source_distribution, path, time_epsilon):
+    
+    x_0 = source_distribution.sample_like(x_1)
+    t = torch.rand(x_1.shape[0], device=x_1.device) * (1.0 - time_epsilon)
+    path_sample = path.sample(t=t, x_0=x_0, x_1=x_1)
+    
+    return path_sample

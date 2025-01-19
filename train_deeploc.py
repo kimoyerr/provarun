@@ -10,7 +10,7 @@ from omegaconf import DictConfig
 from provarun.data_utils import split_deeploc_data, build_hf_data_loader, corrupt_data
 from provarun.models import GPT
 from provarun.train_utils import get_lr
-from provarun.flow_utils import MaskedSourceDistribution, MixtureDiscreteProbPath, PolynomialConvexScheduler
+from provarun.flow_utils import MaskedSourceDistribution, MixtureDiscreteProbPath, PolynomialConvexScheduler, flow_matching_path_sample
 
 
 # TODO: Add a main at some point to make this cleaner with using Hydra
@@ -63,7 +63,8 @@ dataloader_tag_dict = {
 
 
 # Flow setup
-source_distribution = MaskedSourceDistribution(mask_token=tokenizer.vocab_size)
+# TODO: In the original meta implementation, they created an extra token at the end and used that for masking
+source_distribution = MaskedSourceDistribution(mask_token=mask_token_id)
 if flow_cfg.scheduler_type == "polynomial":
     scheduler = PolynomialConvexScheduler(n=flow_cfg.exponent)
 else:
@@ -83,7 +84,7 @@ else:
 # Dataloader and checking batches look goo
 data_iterator = iter(data_loader)
 batch = next(data_iterator)
-print(batch)
+# print(batch)
 x_1 = batch[0]["aa_inputs"]["input_ids"]
 labels = batch[1]["aa_labels"]
 times = batch[3]["times"]
@@ -97,18 +98,15 @@ with torch.no_grad():
     t = torch.rand(x_1.shape[0], device=x_1.device) * (1.0 - time_epsilon)
     path_sample = path.sample(t=t, x_0=x_0, x_1=x_1)
 
+# # Corrupt the data
+# x_corrupt, corrupt_mask = corrupt_data(x, times, mask_token_id)
+
 # Load model with config
 model = GPT(model_cfg)  
 model.to("cuda")
 
-# Forward pass
-
+# Forward pass check
 # output = model(x, labels)
-
-
-
-# # Corrupt the data
-# x_corrupt, corrupt_mask = corrupt_data(x, times, mask_token_id)
 
 
 # Training
@@ -135,9 +133,17 @@ while epoch < train_cfg.num_epochs:
         loss_mask = batch[2]["loss_mask"].to("cuda")  # Loss mask is used to mask out the loss for padded tokens during training
         if len(batch) > 3:  # Check if 4th element exists
             times = batch[3]["times"]
-            X, corrupt_mask = corrupt_data(X, times, mask_token_id)
-            corrupt_mask = corrupt_mask.to("cuda")
-            times = times.to("cuda")
+            if model_cfg.flow_matching:
+                path_sample = flow_matching_path_sample(x_1, source_distribution, path, time_epsilon)
+                X = path_sample.x_t.to("cuda")
+                times = path_sample.t.to("cuda")
+                # TODO: Test what happens if we calculate loss on only the mutated tokens
+                # Corrupt_mask is all ones. We want to calculate loss over all tokens to replicate what the meta's example does
+                corrupt_mask = torch.ones_like(loss_mask).to("cuda")
+            else:
+                X, corrupt_mask = corrupt_data(X, times, mask_token_id, flow_matching=model_cfg.flow_matching)
+                corrupt_mask = corrupt_mask.to("cuda")
+                times = times.to("cuda")
             # Update loss mask to account for the corrupted tokens
             loss_mask = loss_mask * (corrupt_mask)
         # Get new learning rate
