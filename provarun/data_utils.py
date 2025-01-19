@@ -14,6 +14,12 @@ from torchtitan.datasets.tokenizer import Tokenizer
 from torchtitan.logging import init_logger, logger
 
 
+def get_finewebedu_data(output_dir, mode="train", cache_dir=None):
+    data = load_dataset(
+            "HuggingFaceFW/fineweb-edu", name="CC-MAIN-2024-10", cache_dir=cache_dir
+        )[mode]
+    return data
+
 def split_deeploc_data(csv_path, output_dir, debug=False, num_training_seq=None):
 
 
@@ -272,12 +278,13 @@ def pad_sequences(sequences, constant_value=0, dtype=None):
 
 
 def corrupt_data(X, times, mask_token_id):
-     assert times.shape[0] == X.shape[0]
+    assert times.shape[0] == X.shape[0]
 
-     # Generate random numbers of size X.shape
-     u = torch.rand(X.shape)
-     # Generate a mask for the data to corrupt. Times close to 0 are more likely to be corrupted
-     corrupt_mask = u < (1-times)
-     X[corrupt_mask] = mask_token_id
+    # Generate random numbers of size X.shape
+    u = torch.rand(X.shape)
+    # Generate a mask for the data to corrupt. Times close to 0 are more likely to be corrupted
+    corrupt_mask = u < (1-times)
+    X[corrupt_mask] = mask_token_id
 
-     return X, corrupt_mask
+    return X, corrupt_mask
+
