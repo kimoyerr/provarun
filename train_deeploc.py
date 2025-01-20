@@ -1,5 +1,6 @@
 import os
 import time
+from pathlib import Path
 from contextlib import nullcontext
 from hydra import initialize, compose
 import torch
@@ -9,7 +10,7 @@ from torchinfo import summary
 from omegaconf import DictConfig
 from provarun.data_utils import split_deeploc_data, build_hf_data_loader, corrupt_data
 from provarun.models import GPT
-from provarun.train_utils import get_lr
+from provarun.train_utils import get_lr, TrainState
 from provarun.flow_utils import MaskedSourceDistribution, MixtureDiscreteProbPath, PolynomialConvexScheduler, flow_matching_path_sample
 
 
@@ -115,6 +116,15 @@ ctx = nullcontext() if  train_cfg.device == "cpu" else torch.amp.autocast("cuda"
 scaler = torch.amp.GradScaler(enabled=train_cfg.dtype in ["float16", "bfloat16"])
 optimizer = torch.optim.Adam(model.parameters(), lr=train_cfg.learning_rate)
 
+# Train state
+device = "cuda"
+rank = 0
+if train_cfg.ckpt_name is None:
+    ckpt_name = f"DeepLoc-Epoch-{train_cfg.num_epochs}-BatchSize-{train_cfg.batch_size}-LearningRate-{train_cfg.learning_rate}"
+# TODO: Turned off data_state for now but need to add it back in
+state = TrainState(model=model, optimizer=optimizer, step=1)
+state.restore_checkpoint(ckpt_dir=Path(train_cfg.ckpt_dir), device="device", rank=rank)
+
 # TODO: Compile model
 if model_cfg.compile_model:
     unoptimized_model = model
@@ -211,6 +221,12 @@ while epoch < train_cfg.num_epochs:
                     if (wandb is not None):
                         wandb.log({"val_loss": loss_val})
                 model.train()
+
+
+            # Save checkpoings
+            if (step + 1) % train_cfg.ckpt_save_interval == 0:
+                state.save_checkpoint(ckpt_dir=train_cfg.ckpt_dir, rank=rank)
+                print(f"Checkpoint for step {step} saved at {train_cfg.ckpt_dir}")
 
     
     epoch += 1
