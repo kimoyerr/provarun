@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any, Dict, Optional
 import itertools
 from dataclasses import dataclass, field    
@@ -160,3 +161,24 @@ def get_lr(it, all, learning_rate, warmup_iters):
     assert 0 <= decay_ratio <= 1
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
     return min_lr + coeff * (learning_rate - min_lr)
+
+
+
+@dataclass
+class WorkDirectory:
+    root: Path = field(metadata={"help": "Root work directory"})
+    checkpoint: Path = field(metadata={"help": "Checkpoint directory"})
+    samples: Path = field(metadata={"help": "Samples directory"})
+
+
+def get_work_dirs(work_dir: str, rank: int) -> WorkDirectory:
+    work_dir = Path(work_dir)
+
+    sample_dir = work_dir / "samples"
+    checkpoint_dir = work_dir / "checkpoints" / "checkpoint.pth"
+
+    if rank == 0:
+        sample_dir.mkdir(exist_ok=True)
+        checkpoint_dir.parents[0].mkdir(exist_ok=True)
+
+    return WorkDirectory(root=work_dir, checkpoint=checkpoint_dir, samples=sample_dir)

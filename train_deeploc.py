@@ -10,7 +10,7 @@ from torchinfo import summary
 from omegaconf import DictConfig
 from provarun.data_utils import split_deeploc_data, build_hf_data_loader, corrupt_data
 from provarun.models import GPT
-from provarun.train_utils import get_lr, TrainState
+from provarun.train_utils import get_lr, TrainState, get_work_dirs
 from provarun.flow_utils import MaskedSourceDistribution, MixtureDiscreteProbPath, PolynomialConvexScheduler, flow_matching_path_sample
 
 
@@ -24,6 +24,14 @@ model_cfg = all_cfg.model
 train_cfg = all_cfg.train
 flow_cfg = all_cfg.flow
 
+# Working directory
+if train_cfg.work_dir is None:
+    work_dir = "working_dir"
+else:
+    work_dir = train_cfg.work_dir
+os.makedirs(work_dir, exist_ok=True)
+rank = 0
+work_dirs = get_work_dirs(work_dir=work_dir, rank=rank)
 
 # Prepare data
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -119,11 +127,9 @@ optimizer = torch.optim.Adam(model.parameters(), lr=train_cfg.learning_rate)
 # Train state
 device = "cuda"
 rank = 0
-if train_cfg.ckpt_name is None:
-    ckpt_name = f"DeepLoc-Epoch-{train_cfg.num_epochs}-BatchSize-{train_cfg.batch_size}-LearningRate-{train_cfg.learning_rate}"
 # TODO: Turned off data_state for now but need to add it back in
 state = TrainState(model=model, optimizer=optimizer, step=1)
-state.restore_checkpoint(ckpt_dir=Path(train_cfg.ckpt_dir), device="device", rank=rank)
+state.restore_checkpoint(ckpt_dir=work_dirs.checkpoint, device="device", rank=rank)
 
 # TODO: Compile model
 if model_cfg.compile_model:
@@ -225,8 +231,8 @@ while epoch < train_cfg.num_epochs:
 
             # Save checkpoings
             if (step + 1) % train_cfg.ckpt_save_interval == 0:
-                state.save_checkpoint(ckpt_dir=train_cfg.ckpt_dir, rank=rank)
-                print(f"Checkpoint for step {step} saved at {train_cfg.ckpt_dir}")
+                state.save_checkpoint(ckpt_dir=work_dirs.checkpoint, rank=rank)
+                print(f"Checkpoint for step {step} saved at {work_dirs.checkpoint}")
 
     
     epoch += 1
