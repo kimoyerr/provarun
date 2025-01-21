@@ -195,7 +195,7 @@ class GPT(nn.Module):
             logits = self.output(h)
             self.last_loss = nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1), ignore_index=-1, reduction="none")
         else:
-            logits = self.output(h[:, [-1], :])  # Ignore the last token
+            logits = self.output(h)
             self.last_loss = None
 
         # Causal LM output
