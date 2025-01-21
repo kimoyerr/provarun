@@ -1,0 +1,26 @@
+generate:
+  ckpt_path: "working_dir/checkpoints/checkpoint.pth"
+  ckpt_name: None
+  sample_dir: "samples/deeploc"
+  batch_size: 4
+
+model:
+  flow_matching: True
+  vocab_size: 33
+  max_seq_len: 256
+  dim: 512
+  num_heads: 8
+  num_transformer_layers: 16
+  dropout: 0.1
+  flash_attn: False
+  rms_norm_eps: 1e-6
+  ffn_multiple: 4
+  compile_model: False
+
+# From: https://github.com/facebookresearch/flow_matching/blob/main/examples/text/configs/config.yaml
+flow:
+  source_distribution: uniform  # [uniform, mask]
+  loss_function: cross_entropy  # [cross_entropy, generalized_kl]
+  exponent: 1.
+  scheduler_type: polynomial
+  sampling_steps: 1024
