@@ -81,14 +81,6 @@ else:
 
 path = MixtureDiscreteProbPath(scheduler=scheduler)
 
-# Wandb logging
-wandb_run_name = f"DeepLoc-Epoch-{train_cfg.num_epochs}-BatchSize-{train_cfg.batch_size}-LearningRate-{train_cfg.learning_rate}"
-if train_cfg.use_wandb:
-    import wandb
-
-    wandb.init(project=train_cfg.wandb_project, name=wandb_run_name)
-else:
-    wandb = None
 
 # Dataloader and checking batches look goo
 data_iterator = iter(data_loader)
@@ -113,10 +105,42 @@ with torch.no_grad():
 # Load model with config
 model = GPT(model_cfg)  
 model.to("cuda")
+# Get number of parameters
+pytorch_total_params = sum(p.numel() for p in model.parameters())
+print(f"Number of parameters: {pytorch_total_params}")
 
+model_tag_dict = {
+    "model_name": "GPT",
+    "model_config": model_cfg,
+    "num_parameters": pytorch_total_params,
+    "hidden_size": model_cfg.dim,
+    "model_seq_len": model_cfg.max_seq_len,
+    "model_num_layers": model_cfg.num_transformer_layers,
+    "model_num_heads": model_cfg.num_heads,
+    "model_ffn_size": model_cfg.ffn_multiple,
+}
 # Forward pass check
 # output = model(x, labels)
 
+
+# Wandb logging
+wandb_run_name = f"DeepLoc-Epoch-{train_cfg.num_epochs}-BatchSize-{train_cfg.batch_size}-LearningRate-{train_cfg.learning_rate}"
+if train_cfg.use_wandb:
+    import wandb
+
+    wandb.init(project=train_cfg.wandb_project, name=wandb_run_name)
+else:
+    wandb = None
+
+# Add dictionary to wandb
+if wandb is not None:
+    # Expand the dictionary
+    for key, value in train_cfg.items():
+        wandb.config[key] = value
+    for key, value in model_cfg.items():
+        wandb.config[key] = value
+    for key, value in flow_cfg.items():
+        wandb.config[key] = value
 
 # Training
 # Get training context
