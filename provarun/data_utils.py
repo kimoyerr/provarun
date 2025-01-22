@@ -27,7 +27,11 @@ def split_deeploc_data(csv_path, output_dir, debug=False, num_training_seq=None)
     # Use the 4 folds for training and the last fold for validation    
     df = pd.read_csv(csv_path)
     train_df = df[df['Partition'] != 4]
+    # Shuffle the training data
+    train_df = train_df.sample(frac=1)
     val_df = df[df['Partition'] == 4]
+    # Shuffle the validation data
+    val_df = val_df.sample(frac=1)
     # Write to output directory
     # Check if output_dir exists, if not create it
     if not os.path.exists(output_dir):
@@ -119,6 +123,8 @@ class HuggingFaceProteinDataset(IterableDataset, Stateful):
                     f"Dataset {self.dataset_name} is being re-looped. "
                     "Loss related metrics might be misleading."
                 )
+                # Shuffle the data
+                self._data.shuffle()
 
     def collate_fn(self, batch):
         aa_seqs, aa_label_ids = zip(*batch)
