@@ -174,7 +174,7 @@ while epoch < train_cfg.num_epochs:
         if len(batch) > 3:  # Check if 4th element exists
             times = batch[3]["times"]
             if model_cfg.flow_matching:
-                path_sample = flow_matching_path_sample(x_1, source_distribution, path, time_epsilon)
+                path_sample = flow_matching_path_sample(X, source_distribution, path, time_epsilon)
                 X = path_sample.x_t.to("cuda")
                 times = path_sample.t.to("cuda")
                 # TODO: Test what happens if we calculate loss on only the mutated tokens
