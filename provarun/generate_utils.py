@@ -1,4 +1,5 @@
 from abc import ABC
+from pathlib import Path
 import torch
 from torch import nn, Tensor
 
@@ -59,7 +60,8 @@ def generate_samples(
     sentences = tokenizer.batch_decode(sample)
 
     if sample_dir is not None:
-        file_name = sample_dir / f"iter_{step}" / f"sample_{rank}.txt"
+
+        file_name = Path(sample_dir).joinpath(f"iter_{str(step)}", f"sample_{str(rank)}.txt")
         file_name.parents[0].mkdir(exist_ok=True, parents=True)
 
         with open(file_name, "w") as file:
