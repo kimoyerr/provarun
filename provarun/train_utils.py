@@ -110,7 +110,7 @@ class TrainState:
         if ckpt_dir.exists():
             loaded_state = torch.load(ckpt_dir, map_location=device, weights_only=True)
 
-            self.optimizer.load_state_dict(loaded_state["optimizer"])
+            # self.optimizer.load_state_dict(loaded_state["optimizer"])
             if hasattr(self.model, 'module'):
                 self.model.module.load_state_dict(loaded_state["model"])
             else:
