@@ -20,18 +20,19 @@ def get_finewebedu_data(output_dir, mode="train", cache_dir=None):
         )[mode]
     return data
 
-def split_deeploc_data(csv_path, output_dir, debug=False, num_training_seq=None):
+def split_deeploc_data(csv_path, output_dir, debug=False, num_training_seq=None, shuffle=True):
 
 
     # Split the dataset into train and validation sets based on the  Partition column
     # Use the 4 folds for training and the last fold for validation    
     df = pd.read_csv(csv_path)
     train_df = df[df['Partition'] != 4]
-    # Shuffle the training data
-    train_df = train_df.sample(frac=1)
     val_df = df[df['Partition'] == 4]
-    # Shuffle the validation data
-    val_df = val_df.sample(frac=1)
+
+    if shuffle:
+        # Shuffle the validation data
+        train_df = train_df.sample(frac=1)
+        val_df = val_df.sample(frac=1)
     # Write to output directory
     # Check if output_dir exists, if not create it
     if not os.path.exists(output_dir):
